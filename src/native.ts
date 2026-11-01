@@ -39,7 +39,8 @@ export async function launchCompanionVoice(root:string,url:string):Promise<strin
  if(process.platform!=='win32')throw new Error('The native voice panel currently requires Windows. Open /companion.html from Daytown in your browser.');
  const executable=await nativeAppExecutable(root);
  const env={...process.env};delete env.OPENAI_API_KEY;delete env.ELECTRON_RUN_AS_NODE;
- const child=spawn(executable,[url,'--companion'],{cwd:root,env,detached:true,stdio:'ignore',windowsHide:false});
+ const target=new URL('/companion.html?listen=1',url).href;
+ const child=spawn(executable,[target,'--companion'],{cwd:root,env,detached:true,stdio:'ignore',windowsHide:false});
  await new Promise<void>((done,fail)=>{child.once('spawn',done);child.once('error',fail);});child.unref();return 'companion';
 }
 export async function nativePetExecutable(root:string):Promise<string>{

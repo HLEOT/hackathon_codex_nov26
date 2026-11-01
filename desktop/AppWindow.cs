@@ -34,7 +34,7 @@ namespace DaytownApplication {
    retry.Text="Try again";retry.Dock=DockStyle.Bottom;retry.Height=44;retry.FlatStyle=FlatStyle.Flat;retry.BackColor=Color.FromArgb(43,60,45);retry.ForeColor=ForeColor;retry.Visible=false;
    retry.Click+=async delegate{await InitializeAsync();};loading.Controls.Add(status);loading.Controls.Add(retry);Controls.Add(view);Controls.Add(loading);
    Shown+=async delegate{await InitializeAsync();};
-   restoreTimer.Interval=500;restoreTimer.Tick+=delegate{if(restoreRequest.WaitOne(0)){if(WindowState==FormWindowState.Minimized)WindowState=FormWindowState.Normal;Show();Activate();BringToFront();}};restoreTimer.Start();
+   restoreTimer.Interval=500;restoreTimer.Tick+=async delegate{if(restoreRequest.WaitOne(0)){if(WindowState==FormWindowState.Minimized)WindowState=FormWindowState.Normal;Show();Activate();BringToFront();if(companion&&view.CoreWebView2!=null){try{await view.CoreWebView2.ExecuteScriptAsync("window.dispatchEvent(new Event('daytown-listen'))");}catch(Exception error){Log("Companion listen request failed: "+error.Message);}}}};restoreTimer.Start();
    FormClosed+=delegate{closed=true;restoreTimer.Stop();restoreTimer.Dispose();view.Dispose();};
   }
   protected override void OnHandleCreated(EventArgs args){base.OnHandleCreated(args);try{int dark=1;DwmSetWindowAttribute(Handle,20,ref dark,4);}catch{} }
@@ -68,7 +68,7 @@ namespace DaytownApplication {
      };
      core.ProcessFailed+=delegate(object sender,CoreWebView2ProcessFailedEventArgs args){if(!closed){status.Text="The Daytown view stopped. Close and reopen Daytown to continue.";retry.Visible=false;loading.Visible=true;loading.BringToFront();Log("WebView process failed: "+args.ProcessFailedKind);}};
     }
-    Uri target=new Uri(baseUri,companion?"/companion.html?app=1":"/?app=1");
+    Uri target=new Uri(baseUri,companion?"/companion.html?app=1&listen=1":"/?app=1");
     if(view.Source!=null&&view.Source.AbsoluteUri==target.AbsoluteUri)view.CoreWebView2.Reload();else view.Source=target;
    }catch(Exception error){Log(error.GetType().Name+": "+error.Message);if(!closed){status.Text="Daytown could not open its app view.\r\nThe Microsoft Edge WebView2 Runtime is required.\r\nYour local tasks remain saved.";retry.Visible=true;loading.Visible=true;loading.BringToFront();}}
    finally{initializing=false;}

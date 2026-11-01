@@ -23,6 +23,33 @@ test('readiness and tiredness are cooperative voice actions rather than new task
  const old=process.env.OPENAI_API_KEY;process.env.OPENAI_API_KEY='unit-test-not-a-secret';
  try{let body:any,call=0;t.mock.method(globalThis,'fetch',async(_url:any,options:any)=>{body=JSON.parse(options.body);return reply({...empty,action:call++===0?'ready':'gassed',minutes:5});});const state=initialState();assert.equal((await parseVoiceCommand('I am ready',state)).action,'ready');assert.equal((await parseVoiceCommand('I am gassed',state)).action,'gassed');assert.match(body.instructions,/never new tasks or medical assessments/);assert.ok(body.text.format.schema.properties.action.enum.includes('ready'));assert.ok(body.text.format.schema.properties.action.enum.includes('gassed'));assert.equal(state.tasks.length,0);}finally{if(old===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=old;}
 });
+test('natural reports can complete multiple matched tasks and express readiness in one strict response',async t=>{
+ const old=process.env.OPENAI_API_KEY;process.env.OPENAI_API_KEY='unit-test-not-a-secret';
+ try{
+  const acknowledgement='I’ve marked the auth tests and PR 42 as done, and we can take five minutes to rest.';
+  let body:any;t.mock.method(globalThis,'fetch',async(_url:any,options:any)=>{body=JSON.parse(options.body);return reply({...empty,action:'done',task_id:'auth-existing',completed_task_ids:['auth-existing','pr-existing'],readiness:'gassed',needs_clarification:false,clarification_question:null,acknowledgement});});
+  const state=initialState();state.tasks.push({...added,id:'auth-existing',title:'Fix flaky auth tests',createdAt:state.now,status:'todo'},{...added,id:'pr-existing',title:'Review PR 42',createdAt:state.now,status:'todo'});state.activeTaskId='auth-existing';
+  const result=await parseVoiceCommand('I fixed auth tests and reviewed PR 42, I am gassed',state);assert.deepEqual(result.completed_task_ids,['auth-existing','pr-existing']);assert.equal(result.readiness,'gassed');assert.equal(result.needs_clarification,false);assert.match(body.instructions,/natural progress reports semantically/);assert.match(body.instructions,/negated completion must NEVER mark a task done/);assert.match(body.instructions,/Active task ID: auth-existing/);
+  for(const field of ['completed_task_ids','readiness','needs_clarification','clarification_question','acknowledgement'])assert.ok(body.text.format.schema.required.includes(field));assert.equal(body.text.format.schema.properties.completed_task_ids.maxItems,30);assert.equal(body.text.format.schema.properties.acknowledgement.maxLength,240);assert.equal(result.acknowledgement,acknowledgement);assert.match(body.instructions,/only after the server successfully applies the change/);assert.match(body.instructions,/never that they are saved before confirmation/);assert.equal(body.text.format.strict,true);assert.equal(state.tasks.filter(task=>task.status==='done').length,0);
+ }finally{if(old===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=old;}
+});
+test('uncertain completion reports ask a kind question instead of inventing a task or completing the active task',async t=>{
+ const old=process.env.OPENAI_API_KEY;process.env.OPENAI_API_KEY='unit-test-not-a-secret';
+ try{
+  let body:any;t.mock.method(globalThis,'fetch',async(_url:any,options:any)=>{body=JSON.parse(options.body);return reply({...empty,action:'next',completed_task_ids:[],readiness:null,needs_clarification:true,clarification_question:'Which task did you finish?'});});
+  const state=initialState();state.tasks.push({...added,id:'known',createdAt:state.now,status:'todo'});state.activeTaskId='known';const result=await parseVoiceCommand('I finished that other thing',state);assert.equal(result.needs_clarification,true);assert.equal(result.action,'next');assert.deepEqual(result.completed_task_ids,[]);assert.equal(result.task_id,null);assert.equal(result.clarification_question,'Which task did you finish?');assert.match(body.instructions,/do not silently fall back to completing the active task/);assert.match(body.instructions,/clarify before applying any of them/);assert.equal(state.tasks[0].status,'todo');
+ }finally{if(old===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=old;}
+});
+test('report fields reject duplicate or malformed IDs and malformed clarification, while legacy commands remain valid',()=>{
+ assert.equal(validateCommand({...empty,action:'done'}).completed_task_ids,undefined);
+ for(const ids of [['same','same'],[''],[123],Array.from({length:31},(_,index)=>'id-'+index)])assert.throws(()=>validateCommand({...empty,action:'done',completed_task_ids:ids}),/unique existing task IDs/);
+ assert.throws(()=>validateCommand({...empty,action:'next',readiness:'maybe'}),/Readiness/);
+ assert.throws(()=>validateCommand({...empty,action:'next',needs_clarification:'yes'}),/Clarification/);
+ assert.throws(()=>validateCommand({...empty,action:'next',needs_clarification:true,clarification_question:null}),/Ask a short question/);
+ assert.throws(()=>validateCommand({...empty,action:'next',acknowledgement:42}),/Acknowledgements/);
+ assert.throws(()=>validateCommand({...empty,action:'next',acknowledgement:'x'.repeat(241)}),/Acknowledgements/);
+ assert.equal(validateCommand({...empty,action:'next',needs_clarification:true,clarification_question:'Which task did you finish?',acknowledgement:''}).acknowledgement,'');
+});
 test('day-only moves preserve an existing London appointment time instead of the new-task default',async t=>{
  const old=process.env.OPENAI_API_KEY;process.env.OPENAI_API_KEY='unit-test-not-a-secret';
  try{

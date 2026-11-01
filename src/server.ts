@@ -98,12 +98,22 @@ export async function createApp(options:{stateFile?:string;clock?:boolean}={}){
   if(!Buffer.isBuffer(req.body)||req.body.length<100)throw httpError('Hold the mic a little longer and say a few words.');res.json({text:await transcribeAudio(req.body,req.headers['content-type']||'audio/webm')});
  });
  async function executeParsed(parsed:ParsedCommand){
+  if(parsed.needs_clarification)return {action:'clarify',needs_clarification:true,reply:parsed.clarification_question||'Which task did you finish?',state:store.snapshot()};
   let reply='';
   await store.transact((state,events)=>{
    events.push(...advanceState(state));
    if(parsed.action==='ready'||parsed.action==='gassed'){if(parsed.action==='ready'&&parsed.task_id)selectTask(state,parsed.task_id);reply=setReadiness(state,parsed.action,parsed.minutes||5);}
    else if(parsed.action==='add')addTasks(state,parsed.tasks);
-   else if(parsed.action==='done')events.push(...completeTask(state,parsed.task_id||undefined));
+   else if(parsed.action==='done'){
+    const ids=parsed.completed_task_ids?.length?parsed.completed_task_ids:[parsed.task_id||nextTask(state)?.id];
+    if(!ids.length||ids.some(id=>!state.tasks.some(task=>task.id===id&&task.status==='todo')))throw httpError('One of those tasks is already done or is unavailable. Which task did you finish?');
+    const names=ids.map(id=>state.tasks.find(task=>task.id===id)!.title);
+    for(const id of ids)events.push(...completeTask(state,id));
+    reply='I’ve taken '+names.join(' and ')+' off your pinboard.';
+    if(parsed.readiness==='gassed')reply+=' '+setReadiness(state,'gassed',parsed.minutes||5);
+    else if(parsed.readiness==='ready'&&nextTask(state))reply+=' '+setReadiness(state,'ready',parsed.minutes||5);
+   }
+
    else if(parsed.action==='move'||parsed.action==='remind'||parsed.action==='snooze'){
     const task=parsed.task_id?state.tasks.find(t=>t.id===parsed.task_id&&t.status==='todo'):nextTask(state);if(!task)throw httpError('Choose a task first.');
     if(parsed.action==='snooze'){task.remind_at=new Date(Date.parse(state.now)+(parsed.minutes||15)*60000).toISOString();delete task.reminderFiredAt;}
@@ -113,6 +123,8 @@ export async function createApp(options:{stateFile?:string;clock?:boolean}={}){
    }else state.lastInteractionAt=state.now;
    state.pressure=0;state.codex.awaitingReturn=false;state.lastInteractionAt=state.now;
   });
+  if(parsed.action!=='add'&&parsed.acknowledgement)reply=parsed.acknowledgement;
+  if(!reply&&parsed.action==='next')reply=nextTask(store.snapshot())?.tiny_first_step||'Your pinboard is clear, so you can enjoy a breather.';
   return {action:parsed.action,reply,state:store.snapshot()};
  }
  function commandText(body:any){if(typeof body?.text!=='string'||!body.text.trim()||body.text.length>4000)throw httpError('Say or type a thought under 4000 characters.');return body.text;}
