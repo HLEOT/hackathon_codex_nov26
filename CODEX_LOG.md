@@ -44,3 +44,13 @@ Codex review caught an edge case where three visible notes could omit the select
 The user's live microphone test transcribed “auth” as “orth”. Codex added documented transcription vocabulary hints and editable task titles/first steps; it does not claim speech recognition is perfect.
 
 Final workbench checks: 30 tests passed and TypeScript passed. The native pinboard counts all tasks and the full scene includes a raised floor, window, rug, plant and one actor. Anonymous GitHub access returned HTTP 200 with visibility public. npm start reuses an existing Daytown server.
+
+## Timing, pressure, native voice and pet history
+
+Codex added per-task manual elapsed work, explicit active-task selection, preserved timing on swaps, cooperative ready/gassed commands, protected focus/break intervals, pressure escalation with a cartoon pop, and lifetime metadata on permanent graves. A restart regression excludes unobserved downtime from work totals while preserving reserved focus protection. The full suite passed 43 tests and TypeScript.
+
+The native overlay now opens a separate compact WebView2 voice card, sharing the main application profile for draft review. Recorded “I am gassed and need a five minute break” transcribed exactly and parsed as gassed with five minutes. Browser QA confirmed a named Auth tests completion targets that task while Taxes is active, and work time remains with the old task after swapping.
+
+A review found an existing Codex notification command on the workstation. Codex implemented and tested a preserving notification chain rather than replacing it, with an exact local config backup. Tests prove the prior command receives its original event while Daytown receives metadata only. The installed user-level hook applies to new Codex sessions; pet appearance reuse remains a separate read-only bridge.
+
+Final HTTP test also passed: named Ready selects the requested task, swaps preserve sessions, Pause and Gassed stop work, and duplicate Codex events are acknowledged once. The complete final suite has 44 tests. Native UI QA opened the real compact WebView2 card, parsed “I am ready” into a confirmation for the active task, and cancelled without mutation. A real read-only Codex turn reached Daytown through the preserving hook; installed activity and appearance states were checked separately.

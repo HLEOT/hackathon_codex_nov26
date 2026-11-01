@@ -30,7 +30,7 @@ Daytown shows the actual transcript and a review screen before saving. You can c
 
 The transcription request includes coding vocabulary such as auth tests, pull requests, CI and TypeScript. These hints improve recognition but do not guarantee it, which is why corrections remain editable. Day-only moves preserve an appointment's existing time. Invalid dates, daylight-saving gaps and ambiguous clock-change times receive field-specific feedback rather than being silently shifted.
 
-The next task offers one first step with **Start 5 min**, **Done** and **Later 15 min** controls. Voice commands use one strict Structured Outputs parser for add, done, move, remind, what's next, snooze and show my week.
+The active task offers one first step with **Ready for 5 min**, **Done**, **Take a 5 min break** and **Later 15 min** controls. **Tasks** opens the complete list; **Work on this** swaps the active task and keeps elapsed time with the task you left. The manual work timer continues while you code in other windows, pauses on a break or Pause, and excludes server downtime. The five-minute focus countdown is shown separately from total time worked. Voice commands use one strict Structured Outputs parser for add, done, move, remind, what's next, snooze, show my week, ready and gassed.
 
 ## Connect your Codex pet
 
@@ -40,15 +40,29 @@ This is a read-only appearance bridge to the installed Codex/ChatGPT desktop app
 
 Click **Pin workbench** when you want a desktop companion. A small, transparent 340 × 270 window shows one pet working at one pixel desk, with a cute pinboard that counts every remaining task and shows the next few notes. Empty pixels click through to the application underneath. Hover reveals the next step and controls; drag the desk to move it. Walking and AI voice are off by default. Brief reminder signs, subtle feeding animation and a fading ghost stay within the small window. The hover-only voice control can enable a short generated reminder line even when the main app is closed.
 
-## Health and the graveyard
+## Pressure, health and the graveyard
+
+Pressure rises for overdue tasks and after a thirty-minute stretch without a response. An unacknowledged Codex completion raises it about three times faster. The pet grows and changes from amber to orange to red, with brief prompts at pressure thresholds. Focus blocks and declared breaks pause pressure and health drain. At 100 it exits in cartoon confetti, leaves a permanent grave and becomes an egg after its ghost animation. Swapping tasks or responding clears pressure. Demo controls can set pressure directly.
 
 Finishing a step feeds the pet and celebrates the corresponding task note. Overdue tasks and prolonged neglect gradually reduce health through hungry, sick and critical stages. A short focus timer pauses that drain while you start.
 
-At zero health, the pet becomes a ghost and leaves a permanent grave with a playful, kind epitaph. Its replacement egg hatches only when a tiny step is completed; adding more tasks cannot hatch it. The graveyard keeps past companions and their stories. It is intended to be funny and forgiving, never cruel or shaming.
+At zero health, the pet becomes a ghost and leaves a permanent grave with a playful, kind epitaph. Its replacement egg hatches only when a tiny step is completed; adding more tasks cannot hatch it. **History** opens the graveyard, including each companion’s portrait, birth and departure dates, completed-task count, and playful epitaph. Older saved graves keep their existing information. It is intended to be funny and forgiving, never cruel or shaming.
 
 Reminders are delivered once per scheduled occurrence. Pending reminders survive closed tabs and reconnects, and an atomic server claim prevents duplicate speech or notifications across views. A global pet-presence heartbeat suppresses optional system notifications while a pet is visible. Sound and notifications require opting in.
 
 The interface uses sentence-case labels and editable examples. Light, dark and system themes keep the task workflow readable without adding a new screen to manage.
+
+## Talk from the corner workshop
+
+Hover over the transparent workbench and choose **Talk**. A small native application card opens with the same pet, all tasks, work/focus/break timers and a hold-to-talk microphone. Try “Auth tests are done”, “I’m gassed”, or “I’m ready”. You can type instead. Daytown shows the transcript and exact task before you confirm a completion; an editable task selector catches misheard names. New tasks open the main app’s editable review before saving. Replies can use a clearly labelled AI voice; listening stops playback to avoid echo. The microphone is used only while you hold it.
+
+The companion card and main app share a local WebView2 profile. Neither contains an API key. Closing the voice card leaves the transparent workbench available.
+
+## Link Codex activity
+
+Pet appearance and agent activity are separate connections. **Pet settings → Link Codex activity** installs the documented user-level notify hook for **new Codex sessions**. The existing notify command is preserved in a chain, and an exact configuration backup stays in ignored runtime/. Only completion type and thread/turn identifiers reach Daytown; prompts and assistant messages are not sent. Restart the relevant Codex session once after linking. The app reports the last actual completion separately from the same-pet appearance link.
+
+The optional npm run codex command launches Codex with completion reporting; npm run smoke:codex checks a real read-only turn. The global hook reports completed turns; the optional runner also marks when its run starts. Daytown does not control Codex’s own floating pet or automatically start coding tasks. See the [official notification format](https://learn.chatgpt.com/docs/config-file/config-advanced#notifications) and [user-level notification configuration](https://learn.chatgpt.com/docs/config-file/config-reference).
 
 ## Optional Chrome panel
 

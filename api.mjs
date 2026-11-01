@@ -14,7 +14,7 @@ export async function transcribe(buffer, type = 'audio/webm') {
   const extension = type.includes('wav') ? 'wav' : type.includes('mp4') ? 'mp4' : 'webm';
   form.set('file', new Blob([buffer], {type}), `voice.${extension}`);
   form.set('model', process.env.TRANSCRIPTION_MODEL);
-  form.set('prompt', 'A software builder dictating a task list. Common vocabulary includes auth tests, authentication, flaky tests, pull requests, PR 42, CI, TypeScript, Playwright and Codex. The list can also contain personal errands and appointments.');
+  form.set('prompt', 'A software builder dictating a task list. Common vocabulary includes auth tests, authentication, flaky tests, pull requests, PR 42, CI, TypeScript, Playwright and Codex. Commands also include “I am gassed”, “I need a break”, “I am ready”, and naming a task that is done. The list can also contain personal errands and appointments.');
   for (const word of ['auth','auth tests','authentication','flaky tests','pull request','PR','CI','TypeScript','Playwright','Codex']) form.append('keywords[]',word);
   form.append('languages[]','en');
   const result = await openai('audio/transcriptions', form, true);

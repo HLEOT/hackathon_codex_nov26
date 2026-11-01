@@ -7,9 +7,10 @@ import {mkdir,appendFile,writeFile} from 'node:fs/promises';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {bootstrapDemoAssets} from './bootstrap.ts';
-import {launchDesktopPet,launchDesktopApp} from './native.ts';
+import {launchDesktopPet,launchDesktopApp,launchCompanionVoice} from './native.ts';
 import {getCodexPetConnection,connectCodexPet,getLinkedPetPath} from './codex-link.ts';
-import {DaytownStore,advanceState,addTasks,completeTask,death,healthStage,nextTask,seedWeek,validDate,claimReminder,pendingReminderEvents} from './store.ts';
+import {codexNotifyStatus,installCodexNotify} from './codex-notify.ts';
+import {DaytownStore,selectTask,startWork,stopWork,setReadiness,advanceState,addTasks,completeTask,death,healthStage,nextTask,seedWeek,validDate,claimReminder,pendingReminderEvents} from './store.ts';
 import type {DaytownState,TownEvent} from './store.ts';
 import {parseVoiceCommand,transcribeAudio,epitaphFor,spokenLine,normalizeCommandDates} from './voice.ts';
 import type {ParsedCommand} from './voice.ts';
@@ -63,6 +64,9 @@ export async function createApp(options:{stateFile?:string;clock?:boolean}={}){
   res.json({...connection,state:store.snapshot()});
  });
  app.post('/api/app-launch',async(req,res)=>res.json({ok:true,kind:await launchDesktopApp(root,`http://localhost:${port}`)}));
+ app.get('/api/codex-link',async(req,res)=>res.json({...await codexNotifyStatus(root),activity:store.snapshot().codex}));
+ app.post('/api/codex-link',async(req,res)=>res.json(await installCodexNotify(root)));
+ app.post('/api/companion-launch',async(req,res)=>res.json({ok:true,kind:await launchCompanionVoice(root,`http://localhost:${port}`)}));
  app.get('/api/status',(req,res)=>res.json({keyConfigured:!!process.env.OPENAI_API_KEY,latest:latestCodex,sequence:codexSequence,product:'Daytown',assets:getAssetStatus(store.snapshot())}));
  app.get('/api/events',(req,res)=>{
   const snapshot=store.snapshot();
@@ -94,9 +98,11 @@ export async function createApp(options:{stateFile?:string;clock?:boolean}={}){
   if(!Buffer.isBuffer(req.body)||req.body.length<100)throw httpError('Hold the mic a little longer and say a few words.');res.json({text:await transcribeAudio(req.body,req.headers['content-type']||'audio/webm')});
  });
  async function executeParsed(parsed:ParsedCommand){
+  let reply='';
   await store.transact((state,events)=>{
    events.push(...advanceState(state));
-   if(parsed.action==='add')addTasks(state,parsed.tasks);
+   if(parsed.action==='ready'||parsed.action==='gassed'){if(parsed.action==='ready'&&parsed.task_id)selectTask(state,parsed.task_id);reply=setReadiness(state,parsed.action,parsed.minutes||5);}
+   else if(parsed.action==='add')addTasks(state,parsed.tasks);
    else if(parsed.action==='done')events.push(...completeTask(state,parsed.task_id||undefined));
    else if(parsed.action==='move'||parsed.action==='remind'||parsed.action==='snooze'){
     const task=parsed.task_id?state.tasks.find(t=>t.id===parsed.task_id&&t.status==='todo'):nextTask(state);if(!task)throw httpError('Choose a task first.');
@@ -105,8 +111,9 @@ export async function createApp(options:{stateFile?:string;clock?:boolean}={}){
     else {const when=validDate(parsed.when);if(!when)throw httpError('When should I remind you?');task.remind_at=when;delete task.reminderFiredAt;}
     state.lastInteractionAt=state.now;
    }else state.lastInteractionAt=state.now;
+   state.pressure=0;state.codex.awaitingReturn=false;state.lastInteractionAt=state.now;
   });
-  return {action:parsed.action,state:store.snapshot()};
+  return {action:parsed.action,reply,state:store.snapshot()};
  }
  function commandText(body:any){if(typeof body?.text!=='string'||!body.text.trim()||body.text.length>4000)throw httpError('Say or type a thought under 4000 characters.');return body.text;}
  app.post('/api/parse',async(req,res)=>{
@@ -121,14 +128,18 @@ export async function createApp(options:{stateFile?:string;clock?:boolean}={}){
   res.json(await executeParsed(parsed));
  });
  app.post('/api/action',async(req,res)=>{
-  const {action,taskId}=req.body;await store.transact((state,events)=>{
+  const {action,taskId}=req.body;let reply='';await store.transact((state,events)=>{
    events.push(...advanceState(state));
-   if(action==='done')events.push(...completeTask(state,taskId));
-   else if(action==='focus'){const minutes=Math.max(1,Math.min(60,Number(req.body.minutes)||5));state.focusUntil=new Date(Date.parse(state.now)+minutes*60000).toISOString();state.lastInteractionAt=state.now;}
+   if(action==='ready'||action==='gassed'){if(action==='ready'&&taskId)selectTask(state,taskId);reply=setReadiness(state,action,Number(req.body.minutes)||5);}
+   else if(action==='select'){selectTask(state,taskId);reply='Your workbench is ready for '+nextTask(state)?.title+'.';}
+   else if(action==='pause'){stopWork(state);state.focusUntil=null;state.lastInteractionAt=state.now;state.pressure=0;state.codex.awaitingReturn=false;reply='Your work timer is paused.';}
+   else if(action==='done')events.push(...completeTask(state,taskId));
+   else if(action==='focus'){if(taskId)selectTask(state,taskId);reply=setReadiness(state,'ready',Math.max(1,Math.min(60,Number(req.body.minutes)||5)));}
    else if(action==='snooze'){const task=taskId?state.tasks.find(t=>t.id===taskId&&t.status==='todo'):nextTask(state);if(!task)throw httpError('Choose an unfinished task.');task.remind_at=new Date(Date.parse(state.now)+Math.max(1,Math.min(10080,Number(req.body.minutes)||15))*60000).toISOString();delete task.reminderFiredAt;state.lastInteractionAt=state.now;}
    else if(action==='next')state.lastInteractionAt=state.now;
    else throw httpError('Unknown action.');
-  });res.json({state:store.snapshot()});
+   state.pressure=0;state.codex.awaitingReturn=false;state.lastInteractionAt=state.now;
+  });res.json({reply,state:store.snapshot()});
  });
  app.post('/api/debug',async(req,res)=>{
   const {action}=req.body;
@@ -136,6 +147,8 @@ export async function createApp(options:{stateFile?:string;clock?:boolean}={}){
    events.push(...advanceState(state));
    if(action==='seed'){const graves=state.graves;Object.assign(state,seedWeek(Date.now()));state.graves=graves;const linked=getCodexPetConnection();if(linked.connected&&linked.name)state.pet.name=linked.name;}
    else if(action==='advance'){const minutes=Number(req.body.minutes);if(!Number.isFinite(minutes)||minutes<0||minutes>10080)throw httpError('Advance time by 0 to 10080 minutes.');state.clockOffsetMs+=minutes*60000;events.push(...advanceState(state));}
+   else if(action==='pressure'){const value=Number(req.body.value);if(!Number.isFinite(value)||value<0||value>100)throw httpError('Pressure must be between 0 and 100.');if(state.pet.awaitingHatch)throw httpError('Finish one tiny step to hatch the egg first.');state.pressure=value;events.push(...advanceState(state));}
+   else if(action==='codex-done'){state.codex={status:'done',awaitingReturn:true,completedAt:state.now};}
    else if(action==='health'){const value=Number(req.body.value);if(!Number.isFinite(value)||value<0||value>100)throw httpError('Health must be between 0 and 100.');if(state.pet.awaitingHatch&&value>0)throw httpError('Complete a tiny step to hatch the egg.');state.pet.health=value;if(value===0)death(state,nextTask(state),events);else state.pet.stage=healthStage(value);}
    else if(action==='celebrate'){const task=state.tasks.find(t=>t.id===req.body.taskId)||nextTask(state)||state.tasks.at(-1);if(task)events.push({kind:'celebration',taskId:task.id,text:'A little moment worth celebrating.'});}
    else throw httpError('Unknown demo control.');
@@ -153,11 +166,13 @@ export async function createApp(options:{stateFile?:string;clock?:boolean}={}){
   const claimed=await store.transact(state=>claimReminder(state,taskId,reminderAt));
   res.json({claimed});
  });
+ app.post('/api/codex-start',async(req,res)=>{await store.transact(state=>{state.codex={status:'running',awaitingReturn:false,completedAt:null};});res.json({ok:true});});
  app.post('/api/codex-event',async(req,res)=>{
   if(req.body.type!=='agent-turn-complete')throw httpError('Expected agent-turn-complete');
   const id=`${req.body['thread-id']||''}:${req.body['turn-id']||''}`;
   if(id!==':'&&codexSeen.has(id))return res.json({ok:true,duplicate:true});if(id!==':')codexSeen.add(id);if(codexSeen.size>500)codexSeen.delete(codexSeen.values().next().value!);
   latestCodex={type:'agent-turn-complete',threadId:String(req.body['thread-id']||'').slice(0,160),turnId:String(req.body['turn-id']||'').slice(0,160),at:Date.now()};codexSequence++;
+  await store.transact((state,events)=>{events.push(...advanceState(state));state.codex={status:'done',awaitingReturn:true,completedAt:state.now};});
   await mkdir(resolve(root,'runtime'),{recursive:true});await appendFile(resolve(root,'runtime/codex-events.jsonl'),JSON.stringify(latestCodex)+'\n');res.json({ok:true,sequence:codexSequence});
  });
  // Generated content contains images only. Never expose the state file or .env.

@@ -1,9 +1,9 @@
 import {spawn} from 'node:child_process';
 import {resolve} from 'node:path';
 const before=await(await fetch('http://localhost:3000/api/status')).json();
-const hook=resolve('scripts/notify.mjs').replaceAll('\\','/');
-const node=process.execPath.replaceAll('\\','/');
-const child=spawn('codex',['exec','--skip-git-repo-check','--ephemeral','--ignore-user-config','-s','read-only','-c',`notify=["${node}","${hook}"]`,'Reply only with NUDGLING_SMOKE_OK. Do not use tools or modify files.'],{stdio:['ignore','pipe','pipe']});
+const {prepareCodexNotify}=await import('../src/codex-notify.ts');
+const notify=await prepareCodexNotify(resolve('.'));
+const child=spawn('codex',['exec','--skip-git-repo-check','--ephemeral','--ignore-user-config','-s','read-only','-c',`notify=${JSON.stringify(notify)}`,'Reply only with DAYTOWN_SMOKE_OK. Do not use tools or modify files.'],{stdio:['ignore','pipe','pipe']});
 let output='';child.stdout.on('data',data=>output+=data);child.stderr.on('data',()=>{});
 const timeout=setTimeout(()=>child.kill(),60000);
 child.on('error',error=>{console.error(error.message);clearTimeout(timeout);process.exitCode=1;});

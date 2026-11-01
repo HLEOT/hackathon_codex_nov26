@@ -35,6 +35,13 @@ export async function launchDesktopApp(root:string,url:string):Promise<string>{
  const child=spawn(executable,process.platform==='win32'?[url]:[resolve(root,'desktop/main.cjs'),'--app'],{cwd:root,env,detached:true,stdio:'ignore',windowsHide:false});
  await new Promise<void>((done,fail)=>{child.once('spawn',done);child.once('error',fail);});child.unref();return 'application';
 }
+export async function launchCompanionVoice(root:string,url:string):Promise<string>{
+ if(process.platform!=='win32')throw new Error('The native voice panel currently requires Windows. Open /companion.html from Daytown in your browser.');
+ const executable=await nativeAppExecutable(root);
+ const env={...process.env};delete env.OPENAI_API_KEY;delete env.ELECTRON_RUN_AS_NODE;
+ const child=spawn(executable,[url,'--companion'],{cwd:root,env,detached:true,stdio:'ignore',windowsHide:false});
+ await new Promise<void>((done,fail)=>{child.once('spawn',done);child.once('error',fail);});child.unref();return 'companion';
+}
 export async function nativePetExecutable(root:string):Promise<string>{
  if(building)return building;
  building=(async()=>{

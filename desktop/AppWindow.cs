@@ -17,15 +17,17 @@ namespace DaytownApplication {
   readonly Label status=new Label();
   readonly Button retry=new Button();
   readonly EventWaitHandle restoreRequest;
+  readonly bool companion;
   readonly System.Windows.Forms.Timer restoreTimer=new System.Windows.Forms.Timer();
   bool initializing,closed;
   [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd,int attribute,ref int value,int size);
 
-  public AppWindow(string baseUrl,EventWaitHandle restore) {
+  public AppWindow(string baseUrl,EventWaitHandle restore,bool isCompanion) {
    Uri parsed;
    if(!Uri.TryCreate(baseUrl,UriKind.Absolute,out parsed)||parsed.Scheme!="http"||!parsed.IsLoopback)throw new ArgumentException("Daytown only opens its localhost server.");
-   baseUri=new Uri(parsed.GetLeftPart(UriPartial.Authority)+"/");restoreRequest=restore;
+   baseUri=new Uri(parsed.GetLeftPart(UriPartial.Authority)+"/");restoreRequest=restore;companion=isCompanion;
    Text="Daytown";StartPosition=FormStartPosition.CenterScreen;Size=new Size(1000,800);MinimumSize=new Size(840,600);BackColor=Color.FromArgb(20,27,25);ForeColor=Color.FromArgb(234,240,224);Font=new Font("Segoe UI",9f);AutoScaleMode=AutoScaleMode.Dpi;
+   if(companion){Text="Talk to your pet";ClientSize=new Size(380,470);MinimumSize=new Size(360,430);TopMost=true;}
    view.Dock=DockStyle.Fill;view.DefaultBackgroundColor=BackColor;view.Visible=false;
    loading.Dock=DockStyle.Fill;loading.BackColor=BackColor;
    status.Dock=DockStyle.Fill;status.TextAlign=ContentAlignment.MiddleCenter;status.Padding=new Padding(40);status.Font=new Font("Segoe UI",12f);status.Text="Opening Daytown...";
@@ -66,7 +68,7 @@ namespace DaytownApplication {
      };
      core.ProcessFailed+=delegate(object sender,CoreWebView2ProcessFailedEventArgs args){if(!closed){status.Text="The Daytown view stopped. Close and reopen Daytown to continue.";retry.Visible=false;loading.Visible=true;loading.BringToFront();Log("WebView process failed: "+args.ProcessFailedKind);}};
     }
-    Uri target=new Uri(baseUri,"/?app=1");
+    Uri target=new Uri(baseUri,companion?"/companion.html?app=1":"/?app=1");
     if(view.Source!=null&&view.Source.AbsoluteUri==target.AbsoluteUri)view.CoreWebView2.Reload();else view.Source=target;
    }catch(Exception error){Log(error.GetType().Name+": "+error.Message);if(!closed){status.Text="Daytown could not open its app view.\r\nThe Microsoft Edge WebView2 Runtime is required.\r\nYour local tasks remain saved.";retry.Visible=true;loading.Visible=true;loading.BringToFront();}}
    finally{initializing=false;}
@@ -75,11 +77,13 @@ namespace DaytownApplication {
  }
  public static class Program {
   [STAThread] public static void Main(string[] args){
-   bool first;
-   using(Mutex mutex=new Mutex(true,"Local\\DaytownApp",out first)){
-    if(!first){try{using(EventWaitHandle restore=EventWaitHandle.OpenExisting("Local\\DaytownAppRestore")){restore.Set();}}catch{}return;}
-    using(EventWaitHandle restore=new EventWaitHandle(false,EventResetMode.AutoReset,"Local\\DaytownAppRestore")){
-     try{Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);Application.Run(new AppWindow(args.Length>0?args[0]:"http://localhost:3000",restore));}
+   bool first,isCompanion=Array.IndexOf(args,"--companion")>=0;Uri supplied;
+   if(args.Length>0&&Uri.TryCreate(args[0],UriKind.Absolute,out supplied)&&supplied.AbsolutePath.StartsWith("/companion",StringComparison.OrdinalIgnoreCase))isCompanion=true;
+   string mutexName=isCompanion?"Local\\DaytownCompanion":"Local\\DaytownApp",restoreName=isCompanion?"Local\\DaytownCompanionRestore":"Local\\DaytownAppRestore";
+   using(Mutex mutex=new Mutex(true,mutexName,out first)){
+    if(!first){try{using(EventWaitHandle restore=EventWaitHandle.OpenExisting(restoreName)){restore.Set();}}catch{}return;}
+    using(EventWaitHandle restore=new EventWaitHandle(false,EventResetMode.AutoReset,restoreName)){
+     try{Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);Application.Run(new AppWindow(args.Length>0?args[0]:"http://localhost:3000",restore,isCompanion));}
      catch(Exception error){try{File.AppendAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"native-app.log"),DateTime.UtcNow.ToString("o")+" "+error.GetType().Name+": "+error.Message+Environment.NewLine);}catch{}}
     }
    }

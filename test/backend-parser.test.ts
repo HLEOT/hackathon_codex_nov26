@@ -14,10 +14,14 @@ test('brain-dump parser requests strict Structured Outputs and preserves multipl
  }finally{if(old===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=old;}
 });
 test('all edit actions share the same enum parser and unsupported actions are rejected',()=>{
- for(const action of ['done','move','remind','next','snooze','show_week'])assert.equal(validateCommand({...empty,action}).action,action);
+ for(const action of ['done','move','remind','next','snooze','show_week','ready','gassed'])assert.equal(validateCommand({...empty,action}).action,action);
  assert.throws(()=>validateCommand({...empty,action:'delete_everything'}),/Unknown command/);
  assert.throws(()=>validateCommand({...empty,action:'add',tasks:[{...added,due:'Thursdayish'}]}),/date/);
  assert.throws(()=>validateCommand({...empty,action:'snooze',minutes:-4}),/snooze/);
+});
+test('readiness and tiredness are cooperative voice actions rather than new tasks',async t=>{
+ const old=process.env.OPENAI_API_KEY;process.env.OPENAI_API_KEY='unit-test-not-a-secret';
+ try{let body:any,call=0;t.mock.method(globalThis,'fetch',async(_url:any,options:any)=>{body=JSON.parse(options.body);return reply({...empty,action:call++===0?'ready':'gassed',minutes:5});});const state=initialState();assert.equal((await parseVoiceCommand('I am ready',state)).action,'ready');assert.equal((await parseVoiceCommand('I am gassed',state)).action,'gassed');assert.match(body.instructions,/never new tasks or medical assessments/);assert.ok(body.text.format.schema.properties.action.enum.includes('ready'));assert.ok(body.text.format.schema.properties.action.enum.includes('gassed'));assert.equal(state.tasks.length,0);}finally{if(old===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=old;}
 });
 test('day-only moves preserve an existing London appointment time instead of the new-task default',async t=>{
  const old=process.env.OPENAI_API_KEY;process.env.OPENAI_API_KEY='unit-test-not-a-secret';
