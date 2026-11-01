@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "purpose": "One transparent pixel coder workbench with code-rendered fictional task sticky notes. Generic public pet fallback only; linked Codex pet is private.",
+  "generatedDuring": "DevDay Exchange Community Hackathon, London, 1 November 2026",
+  "generationModel": "gpt-image-2.5-flare",
+  "editModel": "gpt-image-2.5-sunburst",
+  "promptSource": "src/images.ts",
+  "petBaseProvenance": "Original same-session mint pet from the initial Nudgling prototype, reused for character consistency.",
+  "files": [
+    {
+      "file": "workbench-base.png",
+      "bytes": 1283420,
+      "sha256": "fe144fe3802782b7ef347a7f84136de46cd4e998abc713506f8fa78ab4c3c7ac"
+    },
+    {
+      "file": "workbench-sample.png",
+      "bytes": 392211,
+      "sha256": "583e34cf771be8933e7750f3b471c9a5d805600e880dc48b5bef56d6fade012e"
+    },
+    {
+      "file": "pet-base.png",
+      "bytes": 1045631,
+      "sha256": "1988b87c12c7844110152de141e642e9427313f0b67ec04dde414d6f12334ebe"
+    },
+    {
+      "file": "pet-happy.png",
+      "bytes": 1045631,
+      "sha256": "1988b87c12c7844110152de141e642e9427313f0b67ec04dde414d6f12334ebe"
+    },
+    {
+      "file": "pet-eating.png",
+      "bytes": 1143307,
+      "sha256": "82870024c7cc17c992a39711e09e3cdd58fe0fdabe3a07c6af6dadb86cabc2ff"
+    },
+    {
+      "file": "pet-hungry.png",
+      "bytes": 1054526,
+      "sha256": "c1a9fc62dbd395ca18a52727bf6d2eeee86642e2d77ad84c8927dd72a4927ea4"
+    },
+    {
+      "file": "pet-sick.png",
+      "bytes": 1104052,
+      "sha256": "54dc4af8612e5f04ffbb540ca347b765b5527d97069fcf6bf2c64e3752780c3f"
+    },
+    {
+      "file": "pet-critical.png",
+      "bytes": 1033920,
+      "sha256": "2a67946af26cb2a0b7cac88d38ad92b33b0ae230bddee1280f2ff5280fd9ae42"
+    },
+    {
+      "file": "pet-ghost.png",
+      "bytes": 1157957,
+      "sha256": "0a5f9525333aefe8d8b7b669339a7ddec4658ec3a45c40adea05ea3404a7c811"
+    },
+    {
+      "file": "pet-egg.png",
+      "bytes": 1044477,
+      "sha256": "aae6fe12cbb18bfb7067b0e3259f272e13d69b76e71da179238f605ee01f994d"
+    }
+  ],
+  "sampleWeek": [
+    {
+      "label": "Dentist",
+      "station": "project station"
+    },
+    {
+      "label": "Taxes",
+      "station": "project station"
+    },
+    {
+      "label": "Call Mum",
+      "station": "project station"
+    },
+    {
+      "label": "Pitch deck",
+      "station": "project station"
+    }
+  ],
+  "visualStyle": "pixel-workbench-v1",
+  "stationStrategy": "ONE shared workbench cutout; task labels are composited in code; no character baked in artwork."
+}

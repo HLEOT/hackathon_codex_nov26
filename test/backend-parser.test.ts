@@ -1,0 +1,49 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {parseVoiceCommand,validateCommand,epitaphFor} from '../src/voice.ts';
+import {initialState} from '../src/store.ts';
+const empty={task_id:null,tasks:[],when:null,minutes:null};
+const added={id:'',title:'Dentist appointment',due:'2026-11-05T15:00:00.000Z',remind_at:'2026-11-05T14:45:00.000Z',building_type:'clinic',label:'Dentist',tiny_first_step:'Find the appointment email.'};
+function reply(json:unknown){return new Response(JSON.stringify({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(json)}]}]}),{status:200,headers:{'Content-Type':'application/json'}});}
+test('brain-dump parser requests strict Structured Outputs and preserves multiple tasks/dates',async t=>{
+ const old=process.env.OPENAI_API_KEY;process.env.OPENAI_API_KEY='unit-test-not-a-secret';
+ try{
+  let body:any;t.mock.method(globalThis,'fetch',async(_url:any,options:any)=>{body=JSON.parse(options.body);return reply({...empty,action:'add',tasks:[added,{...added,title:'File taxes',label:'Taxes',building_type:'town hall'}]});});
+  const state=initialState(Date.parse('2026-11-01T11:00:00Z'));const result=await parseVoiceCommand('dentist Thursday at 3, taxes Friday',state);
+  assert.equal(result.tasks.length,2);assert.equal(result.tasks[0].due,added.due);assert.match(body.instructions,/Europe\/London/);assert.match(body.instructions,/2026-11-01T11:00:00/);assert.equal(body.text.format.type,'json_schema');assert.equal(body.text.format.strict,true);assert.equal(body.text.format.schema.additionalProperties,false);assert.equal(body.store,false);
+ }finally{if(old===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=old;}
+});
+test('all edit actions share the same enum parser and unsupported actions are rejected',()=>{
+ for(const action of ['done','move','remind','next','snooze','show_week'])assert.equal(validateCommand({...empty,action}).action,action);
+ assert.throws(()=>validateCommand({...empty,action:'delete_everything'}),/Unknown command/);
+ assert.throws(()=>validateCommand({...empty,action:'add',tasks:[{...added,due:'Thursdayish'}]}),/date/);
+ assert.throws(()=>validateCommand({...empty,action:'snooze',minutes:-4}),/snooze/);
+});
+test('day-only moves preserve an existing London appointment time instead of the new-task default',async t=>{
+ const old=process.env.OPENAI_API_KEY;process.env.OPENAI_API_KEY='unit-test-not-a-secret';
+ try{
+  let body:any;t.mock.method(globalThis,'fetch',async(_url:any,options:any)=>{body=JSON.parse(options.body);return reply({...empty,action:'move',task_id:'dentist-existing',when:'2026-11-06T15:00:00.000Z'});});
+  const state=initialState(Date.parse('2026-11-01T11:00:00Z'));state.tasks.push({...added,id:'dentist-existing',createdAt:state.now,status:'todo'});
+  const result=await parseVoiceCommand('move dentist to Friday',state);
+  assert.equal(result.when,'2026-11-06T15:00:00.000Z');assert.match(body.instructions,/For NEW tasks only/);assert.match(body.instructions,/day-only move of an existing task, preserve its existing Europe\/London time-of-day/);assert.match(body.instructions,/unless the user explicitly requests a new time/);assert.match(body.instructions,/destination date's London offset/);assert.match(body.instructions,/2026-11-05T15:00:00.000Z/);
+ }finally{if(old===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=old;}
+});
+test('remind me to do a new action creates its own task; reminding about an existing task is an edit',async t=>{
+ const old=process.env.OPENAI_API_KEY;process.env.OPENAI_API_KEY='unit-test-not-a-secret';
+ try{
+  const bodies:any[]=[];let call=0;t.mock.method(globalThis,'fetch',async(_url:any,options:any)=>{bodies.push(JSON.parse(options.body));return reply(call++===0?{...empty,action:'add',tasks:[{...added,title:'Stretch',label:'Stretch',due:null,remind_at:'2026-11-01T11:20:00.000Z',tiny_first_step:'Stand up and place both feet on the floor.'}]}:{...empty,action:'remind',task_id:'existing-dentist',when:'2026-11-01T11:30:00.000Z'});});
+  const state=initialState(Date.parse('2026-11-01T11:00:00Z'));state.tasks.push({...added,id:'existing-dentist',createdAt:state.now,status:'todo'});
+  const newReminder=await parseVoiceCommand('Remind me to stretch in 20 minutes',state);assert.equal(newReminder.action,'add');assert.equal(newReminder.task_id,null);assert.equal(newReminder.tasks[0].due,null);assert.equal(newReminder.tasks[0].remind_at,'2026-11-01T11:20:00.000Z');assert.match(bodies[0].instructions,/remind me TO <new action>/);assert.match(bodies[0].instructions,/Never interpret this as editing an unrelated next task/);assert.match(bodies[0].instructions,/leave due=null unless an explicit deadline is also stated/);
+  const existingReminder=await parseVoiceCommand('Remind me about dentist in 30 minutes',state);assert.equal(existingReminder.action,'remind');assert.equal(existingReminder.task_id,'existing-dentist');assert.deepEqual(existingReminder.tasks,[]);assert.match(bodies[1].instructions,/remind me ABOUT <existing task>/);assert.match(bodies[1].instructions,/Preserve that existing task's deadline/);assert.equal(state.tasks[0].due,added.due);
+ }finally{if(old===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=old;}
+});
+test('model refusal is surfaced safely and does not mutate tasks',async t=>{
+ const old=process.env.OPENAI_API_KEY;process.env.OPENAI_API_KEY='unit-test-not-a-secret';
+ try{t.mock.method(globalThis,'fetch',async()=>new Response(JSON.stringify({output:[{content:[{type:'refusal',refusal:'No'}]}]})));const state=initialState();await assert.rejects(parseVoiceCommand('example',state),/different phrase/);assert.equal(state.tasks.length,0);}finally{if(old===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=old;}
+});
+test('epitaph generation asks for kindness and shares only the short label',async t=>{
+ const old=process.env.OPENAI_API_KEY;process.env.OPENAI_API_KEY='unit-test-not-a-secret';
+ try{let body:any;t.mock.method(globalThis,'fetch',async(_url:any,options:any)=>{body=JSON.parse(options.body);return reply({epitaph:'Here lies Biscuit. Off chasing a tiny receipt.'});});
+ const result=await epitaphFor({...added,title:'Very private full task title',createdAt:'2026-11-01T11:00:00Z',status:'todo'},'Biscuit','2026-11-01T11:00:00Z');assert.match(body.instructions,/never cruel or shaming/);assert.doesNotMatch(body.input,/Very private/);assert.equal(body.text.format.strict,true);assert.match(result,/Biscuit/);
+ }finally{if(old===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=old;}
+});

@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Daytown — one thing at a time",
+  "version": "1.1.0",
+  "description": "A focused task list, voice capture and reminder pet alongside Chrome. Your new tab and search settings stay unchanged.",
+  "side_panel": { "default_path": "panel.html" },
+  "action": { "default_title": "Open Daytown" },
+  "background": { "service_worker": "background.js", "type": "module" },
+  "permissions": ["storage", "notifications", "sidePanel"],
+  "host_permissions": ["http://localhost:3000/*"],
+  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'none'; connect-src http://localhost:3000; img-src 'self' data: blob: http://localhost:3000; style-src 'self' 'unsafe-inline'; font-src 'self'" }
+}

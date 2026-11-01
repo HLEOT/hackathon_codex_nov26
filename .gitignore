@@ -1,0 +1,9 @@
+node_modules/
+.env
+.tools/
+tmp/
+runtime/
+data/
+output/
+*.log
+legacy/

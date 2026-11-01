@@ -1,10 +1,10 @@
 # Daytown
 
-Daytown is a voice-first task app for easily distracted builders. A spoken brain dump becomes editable tasks and deadlines in a pixel-art workspace. A small, transparent desktop pet helps you return to the next step without covering your work.
+Daytown is a voice-first task app for easily distracted builders. A spoken brain dump becomes editable tasks and deadlines in a pixel-art workbench. A small, transparent desktop pet helps you return to the next step without covering your work.
 
 The app is the starting point. Chrome integration is optional, and Daytown leaves Google's new tab, search, shortcuts and browser settings alone.
 
-![A fictional sample week in the pixel workspace](demo-assets/workspace-sample-week.png)
+![A fictional task workbench](demo-assets/workbench-sample.png)
 
 ## Run the application
 
@@ -34,15 +34,15 @@ The next task offers one first step with **Start 5 min**, **Done** and **Later 1
 
 ## Connect your Codex pet
 
-Choose **Connect Codex** in the app. Daytown detects the selected pet from the local desktop app's cached selection and reuses its existing sprite sheet. A successful connection is shown by name, for example “Mallow is connected.” Personal pet artwork stays in ignored local `data/`, not in this public repository. Reconnect is available under Pet settings when you change companions.
+Choose **Connect Codex** in the app. Daytown detects the selected pet from the local desktop app's cached selection and reuses its existing sprite sheet. A successful connection is shown by name, for example “Biscuit is connected.” Personal pet artwork stays in ignored local `data/`, not in this public repository. Reconnect is available under Pet settings when you change companions.
 
 This is a read-only appearance bridge to the installed Codex/ChatGPT desktop app. Daytown does not modify your Codex pet record, borrow account credentials, or claim control of Codex's existing floating window. Tasks, health and reminder behavior run in Daytown's own standalone pet application. The local cache format is not a public SDK and may need adaptation after app updates; if Codex has not cached a compatible pet, open its pet picker once and reconnect. Generic demo artwork remains available as a fallback.
 
-Click **Show pet** only when you want it. The approximately 100-pixel sprite has per-pixel transparency and click-through empty space. Hover reveals its next step and controls; drag it to move it. Walking and AI voice are off by default. Brief reminder signs, subtle feeding animation and a fading ghost stay within the small window. The hover-only voice control can enable a short generated reminder line even when the main app is closed.
+Click **Pin workbench** when you want a desktop companion. A small, transparent 340 × 270 window shows one pet working at one pixel desk, with a cute pinboard that counts every remaining task and shows the next few notes. Empty pixels click through to the application underneath. Hover reveals the next step and controls; drag the desk to move it. Walking and AI voice are off by default. Brief reminder signs, subtle feeding animation and a fading ghost stay within the small window. The hover-only voice control can enable a short generated reminder line even when the main app is closed.
 
 ## Health and the graveyard
 
-Finishing a step feeds the pet and celebrates the corresponding project station. Overdue tasks and prolonged neglect gradually reduce health through hungry, sick and critical stages. A short focus timer pauses that drain while you start.
+Finishing a step feeds the pet and celebrates the corresponding task note. Overdue tasks and prolonged neglect gradually reduce health through hungry, sick and critical stages. A short focus timer pauses that drain while you start.
 
 At zero health, the pet becomes a ghost and leaves a permanent grave with a playful, kind epitaph. Its replacement egg hatches only when a tiny step is completed; adding more tasks cannot hatch it. The graveyard keeps past companions and their stories. It is intended to be funny and forgiving, never cruel or shaming.
 
@@ -60,7 +60,7 @@ If an early hackathon version replaced your new tab, disable or reload that old 
 
 Run `npm run seed` for a fictional sample week, or use **Demo controls**. Seeding resets the demo tasks and pet while preserving graves; it is a debug reset, not part of ordinary egg recovery. Fast-forward changes Daytown's clock, not the computer clock. Health, death and celebration controls make the full sequence reproducible. Label accelerated waiting in recordings.
 
-The weekly poster downloads a locally composited PNG of the workspace, completed stations, graveyard, current pet and counts. [DEMO_SCRIPT.md](DEMO_SCRIPT.md) describes the intended 90-second recording. A video is only claimed complete once its file and duration have been checked.
+The weekly poster downloads a locally composited PNG of the workbench, completed tasks, graveyard, current pet and counts. [DEMO_SCRIPT.md](DEMO_SCRIPT.md) describes the intended 90-second recording. A video is only claimed complete once its file and duration have been checked.
 
 ```sh
 npm install
@@ -74,9 +74,9 @@ Observed checks include live image generation/editing, a recorded four-task brai
 
 ## Architecture and privacy
 
-Node, TypeScript and Express serve the application with SSE updates. Task state is atomically saved in local `data/state.json`. Sharp composites the pixel workspace, project stations, paths and memorials. CSS supplies restrained effects. Generated images are cached; placeholders keep interaction responsive during generation. Scene calls are tied to a change of next task rather than opening a view.
+Node, TypeScript and Express serve the application with SSE updates. Task state is atomically saved in local `data/state.json`. Sharp composites one transparent pixel workbench, task notes, paths and memorials. The selected pet is animated separately from its existing working frames, so no second character is baked into the artwork. CSS supplies restrained effects. Generated images are cached; placeholders keep interaction responsive during generation. Scene calls are tied to a change of next task rather than opening a view.
 
-`demo-assets/` contains only fictional, checksummed workspace art and a generic fallback pet. Actual tasks, recordings, logs, personalized generated images, Codex selection metadata and connected pet artwork are ignored by Git. The extension and pet communicate only with localhost. Voice and task interpretation are processed by OpenAI through the server; image and epitaph prompts use short labels instead of full task details.
+`demo-assets/` contains only fictional, checksummed workbench art and a generic fallback pet. Actual tasks, recordings, logs, personalized generated images, Codex selection metadata and connected pet artwork are ignored by Git. The extension and pet communicate only with localhost. Voice and task interpretation are processed by OpenAI through the server; image and epitaph prompts use short labels instead of full task details.
 
 Models: `gpt-transcribe`, `gpt-6-luna`, `gpt-image-2.5-flare`, `gpt-image-2.5-sunburst` and `gpt-4o-mini-tts`, all configured through env files. The Speech API TTS model is supported but deprecated until 6 January 2027; a longer-lived version should migrate to the current Realtime workflow. Retired `gpt-image-1` is not used.
 
@@ -84,7 +84,7 @@ Models: `gpt-transcribe`, `gpt-6-luna`, `gpt-image-2.5-flare`, `gpt-image-2.5-su
 
 Codex built independent backend, image/compositor and frontend/extension lanes, then reviewed other lanes' work. One concrete review found that reminders fired while all tabs were closed would never be replayed. Codex implemented reconnect replay, persisted delivery claims and tests proving that the reminder could return without duplicate speech. Reviews also fixed shifted appointment times, clipped graves, image retry gaps and repeated compositing.
 
-User feedback drove the change from a cottage town and opaque browser pop-out to a pixel coder workspace, a standalone application, a small transparent pet and a one-action Codex appearance connection. The complete contribution record is [CODEX_LOG.md](CODEX_LOG.md).
+User feedback drove the change from a cottage town and opaque browser pop-out to a single pixel workbench, a standalone application, a small transparent corner workshop and a one-action Codex appearance connection. The complete contribution record is [CODEX_LOG.md](CODEX_LOG.md).
 
 ## Credits
 

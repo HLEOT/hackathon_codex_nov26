@@ -1,0 +1,17 @@
+const $=id=>document.getElementById(id),bridge=window.daytownDesktop;
+let state,assets={pet:{}},voice=false,walking=false,hover=false,lastSrc='',reminderUntil=0;
+const clientId=crypto.randomUUID();
+async function post(path,body){const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw new Error(data.error||'Try again');return data;}
+const next=()=>state?.tasks.find(t=>t.id===state.nextTaskId&&t.status==='todo');
+function render(){if(!state)return;const task=next();$('step').textContent=task?.tiny_first_step||'There is nothing due. Open your tasks to add something.';const src=assets.pet[state.pet.stage];if(src&&src!==lastSrc){lastSrc=src;$('image').src=src;$('image').hidden=false;$('fallback').hidden=true;}document.body.className=`${state.pet.stage}${hover?' hover':''}${Date.now()<reminderUntil?' reminder':''}`;const delta=task?.remind_at?Date.parse(task.remind_at)-Date.parse(state.now):Infinity;const soon=delta>=0&&delta<=15*60000;$('sign').hidden=!(soon||Date.now()<reminderUntil);$('sign').textContent=task?.label||'';}
+async function presence(){try{await post('/api/pet-presence',{clientId,open:!document.hidden});}catch{}}
+async function loadAssets(){try{assets=await(await fetch('/api/assets')).json();render();}catch{}}
+async function remind(event){reminderUntil=Date.now()+8000;render();setTimeout(render,8100);if(!voice)return;const task=event.state?.tasks.find(t=>t.id===event.taskId);try{const {claimed}=await post('/api/reminders/claim',{taskId:event.taskId,reminderAt:task?.reminderFiredAt});if(!claimed)return;const response=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:event.text})});if(!response.ok)return;const url=URL.createObjectURL(await response.blob());const audio=new Audio(url);audio.onended=()=>URL.revokeObjectURL(url);await audio.play();}catch{}}
+$('open').onclick=()=>bridge?.dashboard();$('done').onclick=async()=>{try{await post('/api/action',{action:'done'});}catch(error){$('status').textContent=error.message;setTimeout(()=>$('status').textContent='',4000);}};
+$('sprite').onclick=()=>{reminderUntil=Date.now()+4000;render();setTimeout(render,4100);};
+$('voice').onclick=()=>{voice=!voice;$('voice').title=voice?'AI reminder voice on':'AI voice off';$('voice').textContent=voice?'♫':'♩';$('status').textContent=voice?'AI reminder voice on':'';setTimeout(()=>$('status').textContent='',3000);};
+$('walk').onclick=()=>{walking=!walking;bridge?.walk(walking);$('walk').title=walking?'Stop walking':'Walk along edge';};$('close').onclick=()=>bridge?.close();
+document.addEventListener('mousemove',event=>{const target=document.elementFromPoint(event.clientX,event.clientY);const active=!!target?.closest('#sprite,#controls,#sign');if(active!==hover){hover=active;bridge?.interactive(active);render();}});document.addEventListener('mouseleave',()=>{hover=false;bridge?.interactive(false);render();});
+document.addEventListener('visibilitychange',presence);window.addEventListener('pagehide',()=>{navigator.sendBeacon('/api/pet-presence',new Blob([JSON.stringify({clientId,open:false})],{type:'application/json'}));});
+const events=new EventSource('/api/events');events.onmessage=event=>{try{const data=JSON.parse(event.data);if(data.state){state=data.state;render();}if(data.kind==='assets')loadAssets();if(data.kind==='reminder')remind(data);}catch{}};
+loadAssets();presence();setInterval(presence,15000);setInterval(loadAssets,15000);
