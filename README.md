@@ -6,6 +6,10 @@ The app is the starting point. Chrome integration is optional, and Daytown leave
 
 ![A fictional task workbench](demo-assets/workbench-sample.png)
 
+[Watch the 84-second Daytown demo](demo-assets/Daytown-demo.mp4) · [Download the MP4](https://raw.githubusercontent.com/HLEOT/hackathon_codex_nov26/main/demo-assets/Daytown-demo.mp4)
+
+This captioned video is a **rendered walkthrough with fictional tasks**, not a screen recording. Accelerated demo timings are labelled throughout. Live microphone recognition and spoken task completion were separately confirmed during the hackathon.
+
 ## Run the application
 
 Install Node.js **24 or newer**, then run:
